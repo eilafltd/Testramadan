@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FUA Alliance | Ramadan Mubarak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <style>
+        :root { --gold: #FFD700; --ice-blue: #A5F3FC; }
+        body { margin: 0; overflow: hidden; font-family: 'Poppins', 'Cairo', sans-serif; transition: background-color 0.5s ease; touch-action: none; }
+        .canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; outline: none; touch-action: none; }
+        .ui-layer { position: relative; z-index: 10; pointer-events: none; height: 100vh; display: flex; flex-direction: column; }
+        .interactive { pointer-events: auto; }
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); /* للإصلاح على سفاري آيفون */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .dark-mode { background-color: #020617; color: #f8fafc; }
+        .light-mode { background-color: #f1f5f9; color: #1e293b; }
+        .ramadan-glow { text-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+        .floating { animation: floating 3s ease-in-out infinite; }
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+        }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <div id="webgl-canvas" class="canvas-container"></div>
+
+    <div class="ui-layer">
+        <nav class="p-6 flex justify-between items-center w-full">
+            <div class="interactive group cursor-pointer">
+                <h1 class="text-2xl md:text-3xl font-black tracking-widest text-white">
+                    FUA <span class="text-yellow-500">ALLIANCE</span>
+                </h1>
+            </div>
+            
+            <div class="flex items-center gap-2 interactive">
+                <button onclick="toggleLang()" class="glass-morphism px-3 py-1.5 rounded-full text-xs font-bold border-yellow-500/50 text-white" id="lang-btn">
+                    العربية
+                </button>
+                <button onclick="toggleTheme()" class="glass-morphism p-2.5 rounded-full" id="theme-btn">
+                    🌙
+                </button>
+            </div>
+        </nav>
+
+        <div class="flex-grow flex flex-col items-center justify-start pt-12 text-center px-4">
+            <div class="floating">
+                <h2 id="main-title" class="text-4xl md:text-7xl font-extrabold mb-2 ramadan-glow">Ramadan Kareem</h2>
+                <p id="sub-title" class="text-sm md:text-xl opacity-80 italic">"United by loyalty, strengthened by faith."</p>
+            </div>
+        </div>
+
+        <div class="pb-20 text-center interactive">
+            <p id="tap-hint" class="text-yellow-500 animate-bounce font-bold uppercase tracking-widest text-xs">
+                Tap the Mystery Box
+            </p>
+        </div>
+
+        <footer class="p-4 text-center text-[10px] opacity-40 uppercase tracking-widest">
+            FUA Family • Whiteout Survival
+        </footer>
+    </div>
+
+    <div id="message-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-500">
+        <div class="glass-morphism p-8 rounded-3xl max-w-md w-full text-center relative border-2 border-yellow-500/30 interactive">
+            <div class="text-5xl mb-4">🌙</div>
+            <h3 id="modal-title" class="text-xl font-black text-yellow-500 mb-4 uppercase">Alliance Wisdom</h3>
+            <p id="modal-body" class="text-lg leading-relaxed mb-8 font-medium text-white"></p>
+            <button onclick="closeModal()" id="close-btn" class="w-full bg-yellow-500 text-black py-4 rounded-2xl font-black shadow-lg">
+                CONTINUE
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentLang = 'en';
+        let isDarkMode = true;
+        let isBoxOpen = false;
+
+        const messages = {
+            en: ["The FUA Alliance wishes you a blessed month filled with peace!", "Stay warm in the snow, Ramadan Mubarak warrior!", "Family United All: Together we celebrate the blessings.", "May your furnace always burn bright this Ramadan.", "Strength is in the bonds we share. Happy Ramadan!", "FUA stands with you. Have an easy fast."],
+            ar: ["تحالف FUA يتمنى لكم شهراً مباركاً مليئاً بالسكينة.", "ابقَ دافئاً في الجليد، رمضان مبارك يا محارب!", "عائلة واحدة: معاً نحتفل بالبركات.", "ليكن موقدك مشتعلاً دائماً في هذا الشهر الفضيل.", "القوة في الروابط التي تجمعنا. رمضان كريم!", "تحالف FUA دائماً بجانبك. صياماً مقبولاً."]
+        };
+
+        const translations = {
+            en: { mainTitle: "Ramadan Kareem", subTitle: "\"United by loyalty, strengthened by faith.\"", tapHint: "Tap the Mystery Box", langBtn: "العربية", modalTitle: "Alliance Wisdom", closeBtn: "CONTINUE" },
+            ar: { mainTitle: "رمضان كريم", subTitle: "\"متحدون بالولاء، أقوياء بالإيمان.\"", tapHint: "اضغط على صندوق المفاجآت", langBtn: "English", modalTitle: "حكمة التحالف", closeBtn: "استمرار" }
+        };
+
+        let scene, camera, renderer, boxGroup, lid, boxBase, stars;
+        
+        function initThree() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('webgl-canvas').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const pLight = new THREE.PointLight(0xffd700, 2, 20);
+            pLight.position.set(5, 5, 5);
+            scene.add(pLight);
+
+            boxGroup = new THREE.Group();
+            boxBase = new THREE.Mesh(
+                new THREE.BoxGeometry(2, 1.8, 2),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 })
+            );
+            boxGroup.add(boxBase);
+
+            lid = new THREE.Mesh(
+                new THREE.BoxGeometry(2.3, 0.5, 2.3),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.9, roughness: 0.1 })
+            );
+            lid.position.y = 1.1;
+            boxGroup.add(lid);
+
+            boxGroup.position.y = -0.5;
+            scene.add(boxGroup);
+
+            const starGeo = new THREE.BufferGeometry();
+            const posArray = new Float32Array(1500 * 3);
+            for(let i=0; i<4500; i++) posArray[i] = (Math.random() - 0.5) * 20;
+            starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 0.03, color: 0xffffff }));
+            scene.add(stars);
+
+            camera.position.z = 6;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(boxGroup) boxGroup.rotation.y += 0.005;
+            if(stars) {
+                stars.rotation.y += 0.001;
+                stars.position.y -= 0.005;
+                if(stars.position.y < -5) stars.position.y = 5;
+            }
+            renderer.render(scene, camera);
+        }
+
+        function toggleLang() {
+            currentLang = currentLang === 'en' ? 'ar' : 'en';
+            const dict = translations[currentLang];
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            document.getElementById('main-title').innerText = dict.mainTitle;
+            document.getElementById('sub-title').innerText = dict.subTitle;
+            document.getElementById('tap-hint').innerText = dict.tapHint;
+            document.getElementById('lang-btn').innerText = dict.langBtn;
+            document.getElementById('modal-title').innerText = dict.modalTitle;
+            document.getElementById('close-btn').innerText = dict.closeBtn;
+        }
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.body.className = isDarkMode ? 'dark-mode' : 'light-mode';
+            document.getElementById('theme-btn').innerText = isDarkMode ? '🌙' : '☀️';
+        }
+
+        function openBox() {
+            if(isBoxOpen) return;
+            isBoxOpen = true;
+            
+            document.getElementById('modal-body').innerText = messages[currentLang][Math.floor(Math.random() * messages[currentLang].length)];
+
+            gsap.to(lid.position, { y: 3.5, duration: 0.8, ease: "back.out(1.7)" });
+            gsap.to(lid.rotation, { x: 1.2, duration: 1 });
+
+            setTimeout(() => {
+                const modal = document.getElementById('message-modal');
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('opacity-100'), 50);
+            }, 400);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('message-modal');
+            modal.classList.remove('opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                gsap.to(lid.position, { y: 1.1, duration: 1, ease: "bounce.out" });
+                gsap.to(lid.rotation, { x: 0, duration: 1 });
+                isBoxOpen = false;
+            }, 500);
+        }
+
+        // إعداد الـ Raycaster للآيفون
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function handleInteraction(e) {
+            // منع التفاعل إذا كان المودال مفتوحاً
+            if (isBoxOpen && !document.getElementById('message-modal').classList.contains('hidden')) return;
+
+            // الحصول على الإحداثيات سواء كان لمس أو ماوس
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(boxGroup.children);
+            if (intersects.length > 0) {
+                openBox();
+            }
+        }
+
+        // استخدام pointerdown كحدث رئيسي شامل
+        window.addEventListener('pointerdown', handleInteraction, { passive: false });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        initThree();
+        animate();
+    </script>
+</body>
+</html>
